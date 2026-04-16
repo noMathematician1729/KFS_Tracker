@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>KFS Dataset Checklist</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f4f7fb;
+      --panel: #ffffff;
+      --text: #152033;
+      --muted: #5f6f86;
+      --accent: #245cff;
+      --accent-soft: #dce6ff;
+      --border: #d7e0ee;
+      --shadow: 0 12px 30px rgba(21, 32, 51, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: linear-gradient(180deg, #eef4ff 0%, var(--bg) 100%);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 28px 28px 18px;
+      background: linear-gradient(135deg, #245cff 0%, #4a7bff 100%);
+      color: #fff;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.8rem, 2vw, 2.5rem);
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 700px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .status {
+      font-size: 0.98rem;
+      color: var(--muted);
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .secondary {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      padding: 24px 28px 28px;
+    }
+
+    .item {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px 14px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fbfdff;
+      min-height: 120px;
+    }
+
+    .item-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .option input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .option label {
+      font-size: 0.96rem;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .footer {
+      padding: 0 28px 24px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 18px 12px 32px;
+      }
+
+      .hero,
+      .toolbar,
+      .grid,
+      .footer {
+        padding-left: 18px;
+        padding-right: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="card">
+      <header class="hero">
+        <h1>Robotics Team Checklist</h1>
+        <p>
+          Each checklist entry has two steps: <strong>Image Taken</strong> and
+          <strong>Annotated</strong>. Progress is synced via Firebase so it’s shared across devices.
+        </p>
+      </header>
+
+      <section class="toolbar">
+        <div class="status" id="statusText">Connecting…</div>
+        <div class="actions">
+          <button class="secondary" id="markAllButton" type="button">Mark All</button>
+          <button class="primary" id="clearButton" type="button">Clear All</button>
+        </div>
+      </section>
+
+      <section class="grid" id="checklist"></section>
+
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const totalItems = 62;
+    const stepsPerItem = 2;
+    const checklistDocPath = { collection: "checklists", docId: "main" };
+    const itemLabels = [
+      "R2 Real Blue 1",
+      "R2 Real Blue 2",
+      "R2 Real Blue 3",
+      "R2 Real Blue 4",
+      "R2 Real Blue 5",
+      "R2 Real Blue 6",
+      "R2 Real Blue 7",
+      "R2 Real Blue 8",
+      "R2 Real Blue 9",
+      "R2 Real Blue 10",
+      "R2 Real Blue 11",
+      "R2 Real Blue 12",
+      "R2 Real Blue 13",
+      "R2 Real Blue 14",
+      "R2 Real Blue 15",
+      "R2 Real Red 1",
+      "R2 Real Red 2",
+      "R2 Real Red 3",
+      "R2 Real Red 4",
+      "R2 Real Red 5",
+      "R2 Real Red 6",
+      "R2 Real Red 7",
+      "R2 Real Red 8",
+      "R2 Real Red 9",
+      "R2 Real Red 10",
+      "R2 Real Red 11",
+      "R2 Real Red 12",
+      "R2 Real Red 13",
+      "R2 Real Red 14",
+      "R2 Real Red 15",
+      "R2 Blue Fake 1",
+      "R2 Blue Fake 2",
+      "R2 Blue Fake 3",
+      "R2 Blue Fake 4",
+      "R2 Blue Fake 5",
+      "R2 Blue Fake 6",
+      "R2 Blue Fake 7",
+      "R2 Blue Fake 8",
+      "R2 Blue Fake 9",
+      "R2 Blue Fake 10",
+      "R2 Blue Fake 11",
+      "R2 Blue Fake 12",
+      "R2 Blue Fake 13",
+      "R2 Blue Fake 14",
+      "R2 Blue Fake 15",
+      "R2 Red Fake 1",
+      "R2 Red Fake 2",
+      "R2 Red Fake 3",
+      "R2 Red Fake 4",
+      "R2 Red Fake 5",
+      "R2 Red Fake 6",
+      "R2 Red Fake 7",
+      "R2 Red Fake 8",
+      "R2 Red Fake 9",
+      "R2 Red Fake 10",
+      "R2 Red Fake 11",
+      "R2 Red Fake 12",
+      "R2 Red Fake 13",
+      "R2 Red Fake 14",
+      "R2 Red Fake 15",
+      "R1 Real Blue",
+      "R1 Real Red"
+    ];
+    const checklist = document.getElementById("checklist");
+    const statusText = document.getElementById("statusText");
+    const markAllButton = document.getElementById("markAllButton");
+    const clearButton = document.getElementById("clearButton");
+
+    // Firebase setup steps:
+    // 1) Create Firebase project
+    // 2) Enable Firestore Database
+    // 3) Enable Authentication -> Anonymous
+    // 4) Paste your Firebase Web App config below
+    const firebaseConfig = {
+
+apiKey: "AIzaSyCCxi08yx50jln1TLf_B8h6plN-8QF_sSE",
+
+authDomain: "kfs-tracker.firebaseapp.com",
+
+projectId: "kfs-tracker",
+
+storageBucket: "kfs-tracker.firebasestorage.app",
+
+messagingSenderId: "333394405407",
+
+appId: "1:333394405407:web:68e01a85a71d3bffca0d2a"
+
+};
+
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const checklistRef = doc(db, checklistDocPath.collection, checklistDocPath.docId);
+
+    let state = {};
+    let isReady = false;
+
+    function updateStatus() {
+      if (!isReady) {
+        statusText.textContent = "Connecting…";
+        return;
+      }
+
+      const completed = Object.values(state).reduce((count, itemState) => {
+        if (!itemState || typeof itemState !== "object") {
+          return count;
+        }
+
+        return count + (itemState.imageTaken ? 1 : 0) + (itemState.annotated ? 1 : 0);
+      }, 0);
+
+      statusText.textContent =
+        completed + " of " + totalItems * stepsPerItem + " steps completed";
+    }
+
+    function setUIFromState() {
+      for (let i = 1; i <= totalItems; i += 1) {
+        const itemState = state[i] && typeof state[i] === "object"
+          ? state[i]
+          : { imageTaken: false, annotated: false };
+
+        const imageBox = document.getElementById("task-" + i + "-imageTaken");
+        const annBox = document.getElementById("task-" + i + "-annotated");
+        if (imageBox) imageBox.checked = Boolean(itemState.imageTaken);
+        if (annBox) annBox.checked = Boolean(itemState.annotated);
+      }
+    }
+
+    async function setAll(checked) {
+      const next = {};
+      for (let i = 1; i <= totalItems; i += 1) {
+        next[i] = { imageTaken: checked, annotated: checked };
+      }
+
+      await setDoc(checklistRef, { state: next }, { merge: true });
+    }
+
+    function createItem(number) {
+      const wrapper = document.createElement("div");
+      wrapper.className = "item";
+
+      const title = document.createElement("div");
+      title.className = "item-title";
+      title.textContent = itemLabels[number - 1] || "Item " + number;
+
+      function createOption(key, text) {
+        const row = document.createElement("div");
+        row.className = "option";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.id = "task-" + number + "-" + key;
+        checkbox.checked = false;
+
+        const label = document.createElement("label");
+        label.htmlFor = checkbox.id;
+        label.textContent = text;
+
+        checkbox.addEventListener("change", async () => {
+          const checked = checkbox.checked;
+          try {
+            await setDoc(
+              checklistRef,
+              { state: { [number]: { [key]: checked } } },
+              { merge: true }
+            );
+          } catch (error) {
+            console.error("Failed to sync update:", error);
+            checkbox.checked = !checked;
+          }
+        });
+
+        row.appendChild(checkbox);
+        row.appendChild(label);
+        return row;
+      }
+
+      wrapper.appendChild(title);
+      wrapper.appendChild(createOption("imageTaken", "Image Taken"));
+      wrapper.appendChild(createOption("annotated", "Annotated"));
+      return wrapper;
+    }
+
+    for (let i = 1; i <= totalItems; i += 1) {
+      checklist.appendChild(createItem(i));
+    }
+
+    markAllButton.addEventListener("click", () => setAll(true));
+    clearButton.addEventListener("click", () => setAll(false));
+
+    updateStatus();
+
+    try {
+      await signInAnonymously(auth);
+    } catch (error) {
+      console.error("Anonymous sign-in failed:", error);
+      statusText.textContent = "Firebase auth error (check config)";
+    }
+
+    // Ensure doc exists, then subscribe for realtime updates.
+    try {
+      await setDoc(checklistRef, { state: {} }, { merge: true });
+    } catch (error) {
+      console.error("Failed to init checklist doc:", error);
+    }
+
+    onSnapshot(
+      checklistRef,
+      (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        state = data && data.state && typeof data.state === "object" ? data.state : {};
+        isReady = true;
+        setUIFromState();
+        updateStatus();
+      },
+      (error) => {
+        console.error("Snapshot error:", error);
+        statusText.textContent = "Firebase sync error (check rules)";
+      }
+    );
+  </script>
+</body>
+</html>
