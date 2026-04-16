@@ -163,7 +163,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, doc, getDoc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const totalItems = 62;
     const stepsPerItem = 2;
@@ -355,9 +355,12 @@ appId: "1:333394405407:web:68e01a85a71d3bffca0d2a"
       statusText.textContent = "Firebase auth error (check config)";
     }
 
-    // Ensure doc exists, then subscribe for realtime updates.
+    // Create the shared doc only if it does not exist yet.
     try {
-      await setDoc(checklistRef, { state: {} }, { merge: true });
+      const existing = await getDoc(checklistRef);
+      if (!existing.exists()) {
+        await setDoc(checklistRef, { state: {} });
+      }
     } catch (error) {
       console.error("Failed to init checklist doc:", error);
     }
